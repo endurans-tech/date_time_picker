@@ -554,8 +554,11 @@ class _DateTimePickerState extends FormFieldState<String> {
       if (widget.type != DateTimePickerType.time) {
         _dDate = DateTime.tryParse(lsValue) ?? DateTime.now();
         _tTime = TimeOfDay.fromDateTime(_dDate);
-        _sDate = DateFormat('yyyy-MM-dd', languageCode).format(_dDate);
-        _sTime = DateFormat('HH:mm', languageCode).format(_dDate);
+        // FIX: Dahili _sDate ve _sTime degerleri locale olmadan formatlanmali.
+        // Arapca gibi locale'ler Arap-Hint rakamlari uretir (orn: ٢٠٢٦-٠٢-١٦)
+        // ve DateTime.tryParse() bu rakamlari parse edemez.
+        _sDate = DateFormat('yyyy-MM-dd').format(_dDate);
+        _sTime = DateFormat('HH:mm').format(_dDate);
 
         if (!widget.use24HourFormat) {
           _sTime = DateFormat('hh:mm a', languageCode).format(_dDate);
@@ -629,11 +632,12 @@ class _DateTimePickerState extends FormFieldState<String> {
           final lsOldTime = _sTime;
           _dDate = DateTime.tryParse(lsValue) ?? DateTime.now();
 
-          _sDate = DateFormat('yyyy-MM-dd', languageCode).format(_dDate);
+          // FIX: Locale olmadan formatlaniyor, aciklama icin initValues'a bak.
+          _sDate = DateFormat('yyyy-MM-dd').format(_dDate);
 
           if (lsOldTime != '') {
             _tTime = TimeOfDay.fromDateTime(_dDate);
-            _sTime = DateFormat('HH:mm', languageCode).format(_dDate);
+            _sTime = DateFormat('HH:mm').format(_dDate);
 
             if (!widget.use24HourFormat) {
               _sTime = DateFormat('hh:mm a', languageCode).format(_dDate);
@@ -728,18 +732,21 @@ class _DateTimePickerState extends FormFieldState<String> {
 
     final languageCode = widget.locale?.languageCode;
     if (ldDatePicked != null) {
-      _sDate = DateFormat('yyyy-MM-dd', languageCode).format(ldDatePicked);
+      // FIX: Locale olmadan formatlaniyor, aciklama icin initValues'a bak.
+      _sDate = DateFormat('yyyy-MM-dd').format(ldDatePicked);
       _dDate = ldDatePicked;
       final lsOldValue = _sValue;
       _sValue = _sDate;
       String lsFormatedDate;
 
+      // FIX: DateTime.tryParse(_sDate)! yerine ldDatePicked dogrudan kullaniliyor.
+      // Eski kod Arapca locale ile formatlanan _sDate'i parse etmeye calisiyordu ve null donuyordu.
       if (widget.dateMask != null && widget.dateMask != '') {
-        lsFormatedDate = DateFormat(widget.dateMask, languageCode)
-            .format(DateTime.tryParse(_sDate)!);
+        lsFormatedDate =
+            DateFormat(widget.dateMask, languageCode).format(ldDatePicked);
       } else {
-        lsFormatedDate = DateFormat('MMM dd, yyyy', languageCode)
-            .format(DateTime.tryParse(_sDate)!);
+        lsFormatedDate =
+            DateFormat('MMM dd, yyyy', languageCode).format(ldDatePicked);
       }
 
       if (widget.type == DateTimePickerType.dateTimeSeparate && _sTime != '') {
@@ -760,8 +767,10 @@ class _DateTimePickerState extends FormFieldState<String> {
     final ldNow = DateTime.now();
     final ldTime = DateTime(ldNow.year, ldNow.month, ldNow.day,
         ptTimePicked.hour, ptTimePicked.minute);
-    final lsHour = DateFormat("hh", widget.locale.toString()).format(ldTime);
-    final lsMinute = DateFormat("mm", widget.locale.toString()).format(ldTime);
+    // FIX: widget.locale.toString() yerine locale olmadan kullaniliyor.
+    // Eski kod null safety ihlali yapiyordu ve Arap-Hint rakamlari uretiyordu.
+    final lsHour = DateFormat("hh").format(ldTime);
+    final lsMinute = DateFormat("mm").format(ldTime);
 
     _sTime = '$lsHour:$lsMinute';
     _sPeriod = ptTimePicked.period.index == 0 ? ' AM' : ' PM';
@@ -769,6 +778,8 @@ class _DateTimePickerState extends FormFieldState<String> {
 
   Future<void> _showTimePickerDialog() async {
     final ltTimePicked = await showTimePicker(
+      
+      
       context: context,
       initialTime: _tTime,
       initialEntryMode: widget.timePickerEntryModeInput
@@ -776,12 +787,20 @@ class _DateTimePickerState extends FormFieldState<String> {
           : TimePickerEntryMode.dial,
       useRootNavigator: widget.useRootNavigator,
       routeSettings: widget.routeSettings,
-      builder: (BuildContext context, Widget? child) {
-        return MediaQuery(
-          data: MediaQuery.of(context)
+      builder: (BuildContext dialogContext, Widget? child) {
+        Widget result = MediaQuery(
+          data: MediaQuery.of(dialogContext)
               .copyWith(alwaysUse24HourFormat: widget.use24HourFormat),
           child: child ?? const SizedBox(),
         );
+        if (widget.locale != null) {
+          result = Localizations.override(
+            context: context,
+            locale: widget.locale,
+            child: result,
+          );
+        }
+        return result;
       },
     );
 
@@ -844,7 +863,8 @@ class _DateTimePickerState extends FormFieldState<String> {
 
     final languageCode = widget.locale?.languageCode;
     if (ldDatePicked != null) {
-      _sDate = DateFormat('yyyy-MM-dd', languageCode).format(ldDatePicked);
+      // FIX: Locale olmadan formatlaniyor, aciklama icin initValues'a bak.
+      _sDate = DateFormat('yyyy-MM-dd').format(ldDatePicked);
       _dDate = ldDatePicked;
 
       final ltTimePicked = await showTimePicker(
@@ -855,12 +875,20 @@ class _DateTimePickerState extends FormFieldState<String> {
             : TimePickerEntryMode.dial,
         useRootNavigator: widget.useRootNavigator,
         routeSettings: widget.routeSettings,
-        builder: (BuildContext context, Widget? child) {
-          return MediaQuery(
-            data: MediaQuery.of(context)
+        builder: (BuildContext dialogContext, Widget? child) {
+          Widget result = MediaQuery(
+            data: MediaQuery.of(dialogContext)
                 .copyWith(alwaysUse24HourFormat: widget.use24HourFormat),
             child: child ?? const SizedBox(),
           );
+          if (widget.locale != null) {
+            result = Localizations.override(
+              context: context,
+              locale: widget.locale,
+              child: result,
+            );
+          }
+          return result;
         },
       );
 
@@ -898,13 +926,22 @@ class _DateTimePickerState extends FormFieldState<String> {
       _sValue = '$_sDate $_sTime';
       _sValue = _sValue.trim();
 
+      // FIX: DateTime.tryParse(_sValue)! yerine displayDate dogrudan olusturuluyor.
+      // Eski kod Arapca locale ile formatlanan _sValue'yu parse etmeye calisiyordu ve null donuyordu.
+      final displayDate = DateTime(
+        _dDate.year,
+        _dDate.month,
+        _dDate.day,
+        _tTime.hour,
+        _tTime.minute,
+      );
+
       if (widget.dateMask != null && widget.dateMask != '') {
-        lsFormatedDate = DateFormat(widget.dateMask, languageCode)
-            .format(DateTime.tryParse(_sValue)!);
+        lsFormatedDate =
+            DateFormat(widget.dateMask, languageCode).format(displayDate);
       } else {
         final lsMask = _sTime != '' ? 'MMM dd, yyyy - HH:mm' : 'MMM dd, yyyy';
-        lsFormatedDate = DateFormat(lsMask, languageCode)
-            .format(DateTime.tryParse(_sValue)!);
+        lsFormatedDate = DateFormat(lsMask, languageCode).format(displayDate);
       }
 
       _dateLabelController.text = lsFormatedDate;
